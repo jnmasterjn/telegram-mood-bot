@@ -70,6 +70,11 @@ def list_users() -> list[sqlite3.Row]:
         return conn.execute("SELECT * FROM users ORDER BY created_at").fetchall()
 
 
+def get_user(user_id: str) -> sqlite3.Row | None:
+    with _connect() as conn:
+        return conn.execute("SELECT * FROM users WHERE user_id = ?", (user_id,)).fetchone()
+
+
 def save_mood(
     *,
     user_id: str,

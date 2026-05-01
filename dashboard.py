@@ -120,7 +120,7 @@ PAGE = """
     <header>
       <div>
         <h1>{{ month_name }} {{ year }}</h1>
-        <div class="muted">Mood dashboard for user {{ user_id }}</div>
+        <div class="muted">Mood dashboard for {{ display_name }}</div>
       </div>
       <div class="muted">{{ logged_days }} logged day{{ '' if logged_days == 1 else 's' }}</div>
     </header>
@@ -191,6 +191,8 @@ def dashboard(user_id: str):
     today = today_local()
     year = int(request.args.get("year", today.year))
     month = int(request.args.get("month", today.month))
+    user = db.get_user(user_id)
+    display_name = user["first_name"] if user and user["first_name"] else user_id
     rows = [db.row_to_dict(row) for row in db.get_month(user_id, year, month)]
     by_day = {int(row["date"].split("-")[2]): row for row in rows}
     _, days_in_month = calendar.monthrange(year, month)
@@ -234,7 +236,7 @@ def dashboard(user_id: str):
 
     return render_template_string(
         PAGE,
-        user_id=user_id,
+        display_name=display_name,
         year=year,
         month_name=calendar.month_name[month],
         cells=cells,
