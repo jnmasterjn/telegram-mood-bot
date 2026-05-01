@@ -54,7 +54,7 @@ def _parse_mood_args(args: list[str], quick: bool = False) -> dict:
         rest = args[2:]
     else:
         if len(args) < 2:
-            raise ValueError("Usage: /mood 😊 7 sleep=6 study gym")
+            raise ValueError("Usage: /mood 😊 7 study gym")
         emoji = args[0]
         score = _parse_score(args[1])
         rest = args[2:]
