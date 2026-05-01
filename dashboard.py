@@ -202,11 +202,10 @@ def dashboard(user_id: str):
         if log:
             tags = " ".join(f'<span class="tag">#{html.escape(tag)}</span>' for tag in log["tags"])
             note = f"<p>{html.escape(log['note'])}</p>" if log.get("note") else ""
-            sleep = f"<p>Sleep: {log['sleep']:g}h</p>" if log.get("sleep") is not None else ""
             detail = (
                 f"<strong>{log['date']}</strong>"
                 f"<p>{log.get('emoji') or ''} {log['score']}/10</p>"
-                f"{sleep}<div class=\"tags\">{tags}</div>{note}"
+                f"<div class=\"tags\">{tags}</div>{note}"
             )
             cells.append(
                 {

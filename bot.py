@@ -59,7 +59,6 @@ def _parse_mood_args(args: list[str], quick: bool = False) -> dict:
         score = _parse_score(args[1])
         rest = args[2:]
 
-    sleep = None
     label = ""
     tags = []
     note_parts = []
@@ -70,9 +69,7 @@ def _parse_mood_args(args: list[str], quick: bool = False) -> dict:
             key, value = item.split("=", 1)
             key = key.lower().strip()
             value = value.strip()
-            if key == "sleep":
-                sleep = float(value)
-            elif key == "label":
+            if key == "label":
                 label = value
             elif key == "note":
                 note_parts.append(value)
@@ -90,7 +87,6 @@ def _parse_mood_args(args: list[str], quick: bool = False) -> dict:
         "score": score,
         "emoji": emoji,
         "label": label,
-        "sleep": sleep,
         "tags": [tag for tag in tags if tag],
         "note": " ".join(note_parts),
         "log_date": log_date,
@@ -111,7 +107,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
         "Mood Track Bot is live.\n\n"
         "Commands:\n"
-        "/mood 😊 7 sleep=6 study gym\n"
+        "/mood 😊 7 study gym\n"
         "/m 6 😴\n"
         "/note felt stressed today\n"
         "/week\n"

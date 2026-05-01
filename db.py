@@ -39,7 +39,6 @@ def init_db() -> None:
                 score INTEGER NOT NULL,
                 emoji TEXT,
                 label TEXT,
-                sleep REAL,
                 tags TEXT,
                 note TEXT,
                 created_at TEXT NOT NULL,
@@ -78,7 +77,6 @@ def save_mood(
     score: int,
     emoji: str = "",
     label: str = "",
-    sleep: float | None = None,
     tags: list[str] | None = None,
     note: str = "",
 ) -> None:
@@ -88,13 +86,12 @@ def save_mood(
         conn.execute(
             """
             INSERT INTO mood_logs
-                (user_id, date, score, emoji, label, sleep, tags, note, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (user_id, date, score, emoji, label, tags, note, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(user_id, date) DO UPDATE SET
                 score = excluded.score,
                 emoji = excluded.emoji,
                 label = excluded.label,
-                sleep = excluded.sleep,
                 tags = excluded.tags,
                 note = CASE
                     WHEN excluded.note = '' THEN mood_logs.note
@@ -108,7 +105,6 @@ def save_mood(
                 score,
                 emoji,
                 label,
-                sleep,
                 tags_json,
                 note,
                 now,
