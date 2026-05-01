@@ -301,3 +301,4 @@ Skip initially:
 This is not just a bot.
 
 It is a personal dataset system that helps users understand how their behavior affects their mood.
+# telegram-mood-bot
