@@ -203,9 +203,8 @@ async def send_daily_reminder(context: ContextTypes.DEFAULT_TYPE) -> None:
             text=(
                 "How was your day? (1-10)\n"
                 "Emotion? (emoji)\n"
-                "Sleep hours?\n"
                 "Tags?\n\n"
-                "Fast log: /mood 😊 7 sleep=6 study gym"
+                "Fast log: /mood 😊 7 study gym"
             ),
         )
         sent_any = True
