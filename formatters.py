@@ -16,7 +16,7 @@ def format_saved(log: dict) -> str:
     note = log.get("note")
     note_text = f"\nNote: {note}" if note else ""
     return (
-        f"Saved {log.get('emoji') or 'mood'} at {log['score']}/10 for today.\n"
+        f"Saved {log.get('emoji') or 'mood'} at {log['score']}/10 for {log['date']}.\n"
         f"{tags or 'No tags yet.'}"
         f"{note_text}"
     )
