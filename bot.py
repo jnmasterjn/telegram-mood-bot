@@ -63,6 +63,7 @@ def _parse_mood_args(args: list[str], quick: bool = False) -> dict:
     label = ""
     tags = []
     note_parts = []
+    log_date = None
 
     for item in rest:
         if "=" in item:
@@ -75,6 +76,11 @@ def _parse_mood_args(args: list[str], quick: bool = False) -> dict:
                 label = value
             elif key == "note":
                 note_parts.append(value)
+            elif key == "date":
+                try:
+                    log_date = date.fromisoformat(value)
+                except ValueError:
+                    raise ValueError(f"Invalid date '{value}'. Use date=YYYY-MM-DD.")
             else:
                 tags.append(f"{key}:{value}")
         else:
@@ -87,6 +93,7 @@ def _parse_mood_args(args: list[str], quick: bool = False) -> dict:
         "sleep": sleep,
         "tags": [tag for tag in tags if tag],
         "note": " ".join(note_parts),
+        "log_date": log_date,
     }
 
 
@@ -124,8 +131,9 @@ async def cmd_mood(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     user_id = str(update.effective_user.id)
-    db.save_mood(user_id=user_id, log_date=today_local(), **parsed)
-    row = db.get_day(user_id, today_local())
+    log_date = parsed.pop("log_date") or today_local()
+    db.save_mood(user_id=user_id, log_date=log_date, **parsed)
+    row = db.get_day(user_id, log_date)
     await update.message.reply_text(fmt.format_saved(db.row_to_dict(row)))
 
 
@@ -140,8 +148,9 @@ async def cmd_quick_mood(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
 
     user_id = str(update.effective_user.id)
-    db.save_mood(user_id=user_id, log_date=today_local(), **parsed)
-    row = db.get_day(user_id, today_local())
+    log_date = parsed.pop("log_date") or today_local()
+    db.save_mood(user_id=user_id, log_date=log_date, **parsed)
+    row = db.get_day(user_id, log_date)
     await update.message.reply_text(fmt.format_saved(db.row_to_dict(row)))
 
 
