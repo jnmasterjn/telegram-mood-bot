@@ -154,15 +154,27 @@ async def cmd_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not await _guard(update):
         return
     _remember_user(update)
-    note = " ".join(context.args).strip()
+    args = context.args or []
+    log_date = today_local()
+    note_parts = []
+    for arg in args:
+        if arg.lower().startswith("date="):
+            try:
+                log_date = date.fromisoformat(arg.split("=", 1)[1])
+            except ValueError:
+                await update.message.reply_text("Invalid date. Use date=YYYY-MM-DD.")
+                return
+        else:
+            note_parts.append(arg)
+    note = " ".join(note_parts).strip()
     if not note:
-        await update.message.reply_text("Usage: /note felt stressed today")
+        await update.message.reply_text("Usage: /note felt stressed date=2026-05-01")
         return
 
-    if db.append_note(str(update.effective_user.id), today_local(), note):
-        await update.message.reply_text("Added that note to today's mood log.")
+    if db.append_note(str(update.effective_user.id), log_date, note):
+        await update.message.reply_text(f"Added note to {log_date}.")
     else:
-        await update.message.reply_text("Log your mood first, then add a note.")
+        await update.message.reply_text("No mood log found for that date. Log your mood first.")
 
 
 async def cmd_week(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
