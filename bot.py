@@ -120,8 +120,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/m 6 😴\n"
         "/note felt stressed today\n"
         "/week\n"
-        "/month\n"
-        "/status"
+        "/month"
     )
 
 
@@ -246,17 +245,6 @@ async def cmd_month(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text("Your mood dashboard:", reply_markup=_dashboard_button(user_id))
 
 
-async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not await _guard(update):
-        return
-    _remember_user(update)
-    reminder_time = parse_hhmm(os.getenv("DAILY_REMINDER_TIME", "22:00"))
-    user_id = str(update.effective_user.id)
-    await update.message.reply_text(
-        f"Daily reminder: {reminder_time.strftime('%H:%M')} {TIMEZONE_LABEL}",
-        reply_markup=_dashboard_button(user_id),
-    )
-
 
 async def send_daily_reminder(context: ContextTypes.DEFAULT_TYPE) -> None:
     today = today_local()
@@ -309,7 +297,6 @@ def main() -> None:
     app.add_handler(CommandHandler("delnote", cmd_delnote))
     app.add_handler(CommandHandler("week", cmd_week))
     app.add_handler(CommandHandler("month", cmd_month))
-    app.add_handler(CommandHandler("status", cmd_status))
 
     reminder_time = parse_hhmm(os.getenv("DAILY_REMINDER_TIME", "22:00"))
     app.job_queue.run_daily(send_daily_reminder, time=reminder_time, name=REMINDER_JOB)
