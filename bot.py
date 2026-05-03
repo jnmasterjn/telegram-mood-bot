@@ -1,5 +1,6 @@
 import os
 import logging
+import re
 from datetime import date
 
 from dotenv import load_dotenv
@@ -48,13 +49,13 @@ def _remember_user(update: Update) -> None:
 def _parse_mood_args(args: list[str], quick: bool = False) -> dict:
     if quick:
         if not args:
-            raise ValueError("Usage: /m 6 😴")
+            raise ValueError("Usage: /m 6 😴 drink 5/3")
         score = _parse_score(args[0])
         emoji = args[1] if len(args) > 1 else ""
         rest = args[2:]
     else:
         if len(args) < 2:
-            raise ValueError("Usage: /mood 😊 7 study gym")
+            raise ValueError("Usage: /mood 😊 7 study gym 5/3")
         emoji = args[0]
         score = _parse_score(args[1])
         rest = args[2:]
@@ -65,7 +66,9 @@ def _parse_mood_args(args: list[str], quick: bool = False) -> dict:
     log_date = None
 
     for item in rest:
-        if "=" in item:
+        if _DATE_SHORT.match(item):
+            log_date = _parse_short_date(item)
+        elif "=" in item:
             key, value = item.split("=", 1)
             key = key.lower().strip()
             value = value.strip()
@@ -73,11 +76,6 @@ def _parse_mood_args(args: list[str], quick: bool = False) -> dict:
                 label = value
             elif key == "note":
                 note_parts.append(value)
-            elif key == "date":
-                try:
-                    log_date = date.fromisoformat(value)
-                except ValueError:
-                    raise ValueError(f"Invalid date '{value}'. Use date=YYYY-MM-DD.")
             else:
                 tags.append(f"{key}:{value}")
         else:
@@ -91,6 +89,17 @@ def _parse_mood_args(args: list[str], quick: bool = False) -> dict:
         "note": " ".join(note_parts),
         "log_date": log_date,
     }
+
+
+_DATE_SHORT = re.compile(r'^\d{1,2}/\d{1,2}$')
+
+
+def _parse_short_date(value: str) -> date:
+    month, day = map(int, value.split('/'))
+    try:
+        return date(today_local().year, month, day)
+    except ValueError:
+        raise ValueError(f"Invalid date '{value}'.")
 
 
 def _parse_score(value: str) -> int:
@@ -158,17 +167,17 @@ async def cmd_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     log_date = today_local()
     note_parts = []
     for arg in args:
-        if arg.lower().startswith("date="):
+        if _DATE_SHORT.match(arg):
             try:
-                log_date = date.fromisoformat(arg.split("=", 1)[1])
+                log_date = _parse_short_date(arg)
             except ValueError:
-                await update.message.reply_text("Invalid date. Use date=YYYY-MM-DD.")
+                await update.message.reply_text("Invalid date. Use M/D like 5/3.")
                 return
         else:
             note_parts.append(arg)
     note = " ".join(note_parts).strip()
     if not note:
-        await update.message.reply_text("Usage: /note felt stressed date=2026-05-01")
+        await update.message.reply_text("Usage: /note felt stressed 5/3")
         return
 
     if db.append_note(str(update.effective_user.id), log_date, note):
