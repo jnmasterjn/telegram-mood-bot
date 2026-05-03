@@ -1,304 +1,91 @@
-# Mood Tracking Telegram Bot + Dashboard
+# telegram-mood-bot
 
-## Overview
+A Telegram bot for daily mood tracking with a web dashboard.
 
-This project is a Telegram-based mood tracking system with a web dashboard for monthly visualization and insights.
+## Features
 
-The system allows users to:
-
-- Log daily mood using simple commands
-- Track emotions, sleep, and activities
-- Receive automated daily reminders
-- View monthly summaries via a web page
-
-Goal:
-
-Build a lightweight, daily-use system that turns personal mood data into meaningful insights.
-
-## Architecture
-
-```text
-Telegram Bot -> Backend (Python) -> Database -> Web Dashboard
-```
-
-- Telegram Bot: user input and reminders
-- Backend: processing and logic
-- Database: stores mood data
-- Web Dashboard: visualization and monthly view
+- Log mood with emoji, score, and tags
+- Add and delete notes per day
+- Automated daily reminder + follow-up nudge
+- Weekly summary with pattern insights
+- Monthly calendar dashboard
 
 ## Tech Stack
 
-- Python
-- python-telegram-bot
-- Flask
-- SQLite
-- HTML/CSS with small vanilla JavaScript
-- Chart.js for future optional charts
-
-Use `JobQueue` for scheduling daily messages.
-
-## Telegram Bot Features
-
-### 1. Daily Mood Logging
-
-Command:
-
-```text
-/mood 😊 7 sleep=6 study gym
-```
-
-Parsed as:
-
-- emoji = 😊
-- score = 7
-- sleep = 6
-- tags = `["study", "gym"]`
-
-### 2. Quick Logging
-
-Command:
-
-```text
-/m 6 😴
-```
-
-Minimal input for fast usage.
-
-### 3. Daily Reminder
-
-- Bot sends a message at default 10:00 PM
-- Uses scheduled job system
-
-Message format:
-
-```text
-How was your day? (1-10)
-Emotion? (emoji)
-Sleep hours?
-Tags?
-```
-
-### 4. Follow-up Reminder
-
-If no response within about 1 hour:
-
-```text
-👀 you forgot to log today
-```
-
-### 5. Weekly Summary
-
-Command:
-
-```text
-/week
-```
-
-Returns:
-
-- average mood
-- best/worst day
-- detected patterns
-
-### 6. Monthly Dashboard Link
-
-Command:
-
-```text
-/month
-```
-
-Returns:
-
-```text
-https://yourapp.com/dashboard/<user_id>
-```
-
-### 7. Notes
-
-Optional command:
-
-```text
-/note felt stressed today
-```
-
-## Database Schema
-
-Table: `mood_logs`
-
-```sql
-id INTEGER PRIMARY KEY
-user_id TEXT
-date DATE
-score INTEGER
-emoji TEXT
-label TEXT
-sleep REAL
-tags TEXT
-note TEXT
-```
-
-## Web Dashboard Features
-
-### 1. Monthly Calendar View
-
-- Display all days of month
-- Each day shows emoji
-
-Example:
-
-```text
-😊 😐 😢 😴 😊 😡 😊
-😊 😊 😐 😐 😢 😊 😊
-```
-
-### 2. Color Coding
-
-- Green: good days, scores 7-10
-- Yellow: neutral days, scores 4-6
-- Red: bad days, scores 1-3
-
-### 3. Statistics Panel
-
-- average mood
-- most common emotion
-- best/worst day
-
-### 4. Pattern Insights
-
-Examples:
-
-- Sleep under 6h -> lower mood
-- Gym days -> higher mood
-
-### 5. Day Detail View
-
-Click a day to show:
-
-- mood
-- tags
-- notes
-
-## Data Flow
-
-1. User sends `/mood` command
-2. Bot parses input
-3. Backend stores data in database
-4. Dashboard fetches data via API
-5. User views monthly insights
-
-## Key Implementation Details
-
-### Telegram Scheduling
-
-Use `JobQueue` to:
-
-- schedule daily reminder
-- schedule follow-up ping
-
-This allows periodic tasks in bot logic.
-
-### Command Parsing
-
-Input format:
-
-```text
-/mood <emoji> <score> [key=value] [tags...]
-```
-
-Example parsing logic:
-
-- first arg = emoji
-- second arg = score
-- `key=value` pairs become structured fields
-- remaining values become tags
-
-### API Endpoints
-
-```text
-GET /api/month/<user_id>
-GET /api/day/<user_id>/<date>
-```
-
-## Project Structure
-
-```text
-bot.py            # Telegram commands and JobQueue reminders
-db.py             # SQLite schema and data access
-dashboard.py      # Flask dashboard and JSON API
-formatters.py     # Telegram summary formatting
-utils.py          # timezone and date helpers
-requirements.txt
-Dockerfile
-.env.example
-```
+- Python, python-telegram-bot
+- Flask (web dashboard)
+- PostgreSQL
+- Deployed on Railway
+
+## Commands
+
+| Command | Description |
+|---|---|
+| `/mood 😊 7 study gym` | Log mood with emoji, score (1–10), and tags |
+| `/mood 😊 7 study gym 5/3` | Log mood for a past date (M/D format) |
+| `/m 6 😴` | Quick log — score + emoji |
+| `/note felt great` | Add a note to today's log |
+| `/note felt great 5/3` | Add a note to a past date |
+| `/delnote` | Clear today's note |
+| `/delnote 5/3` | Clear note for a specific date |
+| `/delete` | Delete today's entire mood entry |
+| `/delete 5/3` | Delete a specific day's entry |
+| `/week` | Weekly summary — average, best/worst day, patterns |
+| `/month` | Open the monthly dashboard |
+
+## Dashboard
+
+Monthly calendar view with color-coded days:
+- Green: score 7–10
+- Yellow: score 4–6
+- Red: score 1–3
+
+Click any day to see its emoji, score, tags, and notes.
+
+Stats panel shows average mood, most common emotion, best and worst day.
 
 ## Setup
 
-Create a bot token with Telegram's BotFather, then configure the project:
+### 1. Create a bot
 
-```bash
-cp .env.example .env
+Get a token from [@BotFather](https://t.me/BotFather) on Telegram.
+
+### 2. Configure environment variables
+
 ```
-
-Fill in `.env`:
-
-```text
-TELEGRAM_BOT_TOKEN=your_telegram_bot_token
-TELEGRAM_USER_ID=optional_private_user_id
-BASE_URL=http://localhost:8080
+TELEGRAM_BOT_TOKEN=your_token
+TELEGRAM_USER_ID=your_telegram_id
 MOOD_TIMEZONE=Asia/Taipei
 DAILY_REMINDER_TIME=22:00
 FOLLOW_UP_MINUTES=60
-DATABASE_PATH=mood.db
 PORT=8080
+BASE_URL=https://your-railway-domain.up.railway.app
+DATABASE_URL=your_postgres_url
 ```
 
-Run locally:
+### 3. Deploy on Railway
+
+1. Push to GitHub
+2. New project → Deploy from GitHub repo
+3. Add a PostgreSQL database — `DATABASE_URL` is auto-injected
+4. Set the environment variables above
+
+### 4. Run locally
 
 ```bash
 pip install -r requirements.txt
 python bot.py
 ```
 
-Open the local dashboard at:
+## Project Structure
 
-```text
-http://localhost:8080/dashboard/<your_telegram_user_id>
 ```
-
-## MVP Scope
-
-Build only:
-
-- `/mood`
-- `/m`
-- daily reminder
-- monthly dashboard with basic grid
-
-Skip initially:
-
-- fancy UI
-- authentication
-- advanced AI analysis
-
-## Design Principles
-
-- fast input over perfect input
-- consistency over complexity
-- insight over UI design
-
-## Future Improvements
-
-- emotion auto-suggestions
-- AI pattern detection
-- habit correlation
-- export data as CSV
-- mobile-friendly dashboard
-
-## Purpose
-
-This is not just a bot.
-
-It is a personal dataset system that helps users understand how their behavior affects their mood.
-# telegram-mood-bot
+bot.py          # Telegram commands and scheduled reminders
+db.py           # PostgreSQL schema and data access
+dashboard.py    # Flask dashboard and JSON API
+formatters.py   # Weekly summary formatting
+utils.py        # Timezone and date helpers
+requirements.txt
+Dockerfile
+.env.example
+```
