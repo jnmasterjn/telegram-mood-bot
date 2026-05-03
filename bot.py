@@ -186,6 +186,44 @@ async def cmd_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("No mood log found for that date. Log your mood first.")
 
 
+async def cmd_delete(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _guard(update):
+        return
+    _remember_user(update)
+    args = context.args or []
+    log_date = today_local()
+    if args and _DATE_SHORT.match(args[0]):
+        try:
+            log_date = _parse_short_date(args[0])
+        except ValueError:
+            await update.message.reply_text("Invalid date. Use M/D like 5/3.")
+            return
+
+    if db.delete_log(str(update.effective_user.id), log_date):
+        await update.message.reply_text(f"Deleted mood log for {log_date}.")
+    else:
+        await update.message.reply_text(f"No log found for {log_date}.")
+
+
+async def cmd_delnote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _guard(update):
+        return
+    _remember_user(update)
+    args = context.args or []
+    log_date = today_local()
+    if args and _DATE_SHORT.match(args[0]):
+        try:
+            log_date = _parse_short_date(args[0])
+        except ValueError:
+            await update.message.reply_text("Invalid date. Use M/D like 5/3.")
+            return
+
+    if db.clear_note(str(update.effective_user.id), log_date):
+        await update.message.reply_text(f"Cleared note for {log_date}.")
+    else:
+        await update.message.reply_text(f"No log found for {log_date}.")
+
+
 async def cmd_week(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not await _guard(update):
         return
@@ -260,6 +298,8 @@ def main() -> None:
     app.add_handler(CommandHandler("mood", cmd_mood))
     app.add_handler(CommandHandler("m", cmd_quick_mood))
     app.add_handler(CommandHandler("note", cmd_note))
+    app.add_handler(CommandHandler("delete", cmd_delete))
+    app.add_handler(CommandHandler("delnote", cmd_delnote))
     app.add_handler(CommandHandler("week", cmd_week))
     app.add_handler(CommandHandler("month", cmd_month))
     app.add_handler(CommandHandler("status", cmd_status))

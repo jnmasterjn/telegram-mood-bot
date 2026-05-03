@@ -114,6 +114,29 @@ def save_mood(
             """, (user_id, log_date.isoformat(), score, emoji, label, tags_json, note, now, now))
 
 
+def delete_log(user_id: str, log_date: date) -> bool:
+    with _connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM mood_logs WHERE user_id = %s AND date = %s",
+                (user_id, log_date.isoformat()),
+            )
+            return cur.rowcount > 0
+
+
+def clear_note(user_id: str, log_date: date) -> bool:
+    row = get_day(user_id, log_date)
+    if not row:
+        return False
+    with _connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE mood_logs SET note = '', updated_at = %s WHERE user_id = %s AND date = %s",
+                (datetime.now(timezone.utc).isoformat(), user_id, log_date.isoformat()),
+            )
+    return True
+
+
 def append_note(user_id: str, log_date: date, note: str) -> bool:
     row = get_day(user_id, log_date)
     if not row:
