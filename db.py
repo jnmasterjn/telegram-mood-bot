@@ -1,78 +1,86 @@
 import json
 import os
-import sqlite3
+from contextlib import contextmanager
 from datetime import date, datetime, timedelta, timezone
-from pathlib import Path
 from typing import Any
+
+import psycopg2
+import psycopg2.extras
 
 from utils import today_local
 
 
-DATABASE_PATH = Path(os.getenv("DATABASE_PATH", "mood.db"))
+DATABASE_URL = os.getenv("DATABASE_URL", "")
 
 
-def _connect() -> sqlite3.Connection:
-    conn = sqlite3.connect(DATABASE_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+@contextmanager
+def _connect():
+    conn = psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 
 def init_db() -> None:
     with _connect() as conn:
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS users (
-                user_id TEXT PRIMARY KEY,
-                chat_id TEXT NOT NULL,
-                first_name TEXT,
-                created_at TEXT NOT NULL,
-                last_seen_at TEXT NOT NULL
-            )
-            """
-        )
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS mood_logs (
-                id INTEGER PRIMARY KEY,
-                user_id TEXT NOT NULL,
-                date DATE NOT NULL,
-                score INTEGER NOT NULL,
-                emoji TEXT,
-                label TEXT,
-                tags TEXT,
-                note TEXT,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL,
-                UNIQUE(user_id, date)
-            )
-            """
-        )
+        with conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    user_id TEXT PRIMARY KEY,
+                    chat_id TEXT NOT NULL,
+                    first_name TEXT,
+                    created_at TEXT NOT NULL,
+                    last_seen_at TEXT NOT NULL
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS mood_logs (
+                    id SERIAL PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    date TEXT NOT NULL,
+                    score INTEGER NOT NULL,
+                    emoji TEXT,
+                    label TEXT,
+                    tags TEXT,
+                    note TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    UNIQUE(user_id, date)
+                )
+            """)
 
 
 def upsert_user(user_id: str, chat_id: str, first_name: str = "") -> None:
     now = datetime.now(timezone.utc).isoformat()
     with _connect() as conn:
-        conn.execute(
-            """
-            INSERT INTO users (user_id, chat_id, first_name, created_at, last_seen_at)
-            VALUES (?, ?, ?, ?, ?)
-            ON CONFLICT(user_id) DO UPDATE SET
-                chat_id = excluded.chat_id,
-                first_name = excluded.first_name,
-                last_seen_at = excluded.last_seen_at
-            """,
-            (user_id, chat_id, first_name, now, now),
-        )
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO users (user_id, chat_id, first_name, created_at, last_seen_at)
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT (user_id) DO UPDATE SET
+                    chat_id = EXCLUDED.chat_id,
+                    first_name = EXCLUDED.first_name,
+                    last_seen_at = EXCLUDED.last_seen_at
+            """, (user_id, chat_id, first_name, now, now))
 
 
-def list_users() -> list[sqlite3.Row]:
+def list_users() -> list[dict]:
     with _connect() as conn:
-        return conn.execute("SELECT * FROM users ORDER BY created_at").fetchall()
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM users ORDER BY created_at")
+            return cur.fetchall()
 
 
-def get_user(user_id: str) -> sqlite3.Row | None:
+def get_user(user_id: str) -> dict | None:
     with _connect() as conn:
-        return conn.execute("SELECT * FROM users WHERE user_id = ?", (user_id,)).fetchone()
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM users WHERE user_id = %s", (user_id,))
+            return cur.fetchone()
 
 
 def save_mood(
@@ -88,88 +96,76 @@ def save_mood(
     now = datetime.now(timezone.utc).isoformat()
     tags_json = json.dumps(tags or [])
     with _connect() as conn:
-        conn.execute(
-            """
-            INSERT INTO mood_logs
-                (user_id, date, score, emoji, label, tags, note, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(user_id, date) DO UPDATE SET
-                score = excluded.score,
-                emoji = excluded.emoji,
-                label = excluded.label,
-                tags = excluded.tags,
-                note = CASE
-                    WHEN excluded.note = '' THEN mood_logs.note
-                    ELSE excluded.note
-                END,
-                updated_at = excluded.updated_at
-            """,
-            (
-                user_id,
-                log_date.isoformat(),
-                score,
-                emoji,
-                label,
-                tags_json,
-                note,
-                now,
-                now,
-            ),
-        )
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO mood_logs
+                    (user_id, date, score, emoji, label, tags, note, created_at, updated_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (user_id, date) DO UPDATE SET
+                    score = EXCLUDED.score,
+                    emoji = EXCLUDED.emoji,
+                    label = EXCLUDED.label,
+                    tags = EXCLUDED.tags,
+                    note = CASE
+                        WHEN EXCLUDED.note = '' THEN mood_logs.note
+                        ELSE EXCLUDED.note
+                    END,
+                    updated_at = EXCLUDED.updated_at
+            """, (user_id, log_date.isoformat(), score, emoji, label, tags_json, note, now, now))
 
 
 def append_note(user_id: str, log_date: date, note: str) -> bool:
     row = get_day(user_id, log_date)
     if not row:
         return False
-
     current = row["note"] or ""
     next_note = note if not current else f"{current}\n{note}"
     with _connect() as conn:
-        conn.execute(
-            "UPDATE mood_logs SET note = ?, updated_at = ? WHERE user_id = ? AND date = ?",
-            (next_note, datetime.now(timezone.utc).isoformat(), user_id, log_date.isoformat()),
-        )
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE mood_logs SET note = %s, updated_at = %s WHERE user_id = %s AND date = %s",
+                (next_note, datetime.now(timezone.utc).isoformat(), user_id, log_date.isoformat()),
+            )
     return True
 
 
-def get_day(user_id: str, log_date: date) -> sqlite3.Row | None:
+def get_day(user_id: str, log_date: date) -> dict | None:
     with _connect() as conn:
-        return conn.execute(
-            "SELECT * FROM mood_logs WHERE user_id = ? AND date = ?",
-            (user_id, log_date.isoformat()),
-        ).fetchone()
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT * FROM mood_logs WHERE user_id = %s AND date = %s",
+                (user_id, log_date.isoformat()),
+            )
+            return cur.fetchone()
 
 
-def get_month(user_id: str, year: int, month: int) -> list[sqlite3.Row]:
+def get_month(user_id: str, year: int, month: int) -> list[dict]:
     start = date(year, month, 1)
     end = date(year + 1, 1, 1) if month == 12 else date(year, month + 1, 1)
     with _connect() as conn:
-        return conn.execute(
-            """
-            SELECT * FROM mood_logs
-            WHERE user_id = ? AND date >= ? AND date < ?
-            ORDER BY date
-            """,
-            (user_id, start.isoformat(), end.isoformat()),
-        ).fetchall()
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT * FROM mood_logs
+                WHERE user_id = %s AND date >= %s AND date < %s
+                ORDER BY date
+            """, (user_id, start.isoformat(), end.isoformat()))
+            return cur.fetchall()
 
 
-def get_recent(user_id: str, days: int = 7) -> list[sqlite3.Row]:
+def get_recent(user_id: str, days: int = 7) -> list[dict]:
     end = today_local()
     start = end - timedelta(days=days - 1)
     with _connect() as conn:
-        return conn.execute(
-            """
-            SELECT * FROM mood_logs
-            WHERE user_id = ? AND date >= ? AND date <= ?
-            ORDER BY date
-            """,
-            (user_id, start.isoformat(), end.isoformat()),
-        ).fetchall()
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT * FROM mood_logs
+                WHERE user_id = %s AND date >= %s AND date <= %s
+                ORDER BY date
+            """, (user_id, start.isoformat(), end.isoformat()))
+            return cur.fetchall()
 
 
-def row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
+def row_to_dict(row: dict) -> dict[str, Any]:
     data = dict(row)
     data["tags"] = json.loads(data["tags"] or "[]")
     return data

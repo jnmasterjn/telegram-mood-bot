@@ -1,3 +1,4 @@
 python-telegram-bot[job-queue]==22.7
 python-dotenv==1.0.1
 Flask==3.0.3
+psycopg2-binary==2.9.10
