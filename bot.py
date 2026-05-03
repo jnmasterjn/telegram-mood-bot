@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from telegram import Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
 import dashboard
@@ -232,12 +232,18 @@ async def cmd_week(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(fmt.format_week(rows))
 
 
+def _dashboard_button(user_id: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([[
+        InlineKeyboardButton("📊 Open Dashboard", url=f"{BASE_URL}/dashboard/{user_id}")
+    ]])
+
+
 async def cmd_month(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not await _guard(update):
         return
     _remember_user(update)
     user_id = str(update.effective_user.id)
-    await update.message.reply_text(f"{BASE_URL}/dashboard/{user_id}")
+    await update.message.reply_text("Your mood dashboard:", reply_markup=_dashboard_button(user_id))
 
 
 async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -245,9 +251,10 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         return
     _remember_user(update)
     reminder_time = parse_hhmm(os.getenv("DAILY_REMINDER_TIME", "22:00"))
+    user_id = str(update.effective_user.id)
     await update.message.reply_text(
-        f"Daily reminder: {reminder_time.strftime('%H:%M')} {TIMEZONE_LABEL}\n"
-        f"Dashboard: {BASE_URL}/dashboard/{update.effective_user.id}"
+        f"Daily reminder: {reminder_time.strftime('%H:%M')} {TIMEZONE_LABEL}",
+        reply_markup=_dashboard_button(user_id),
     )
 
 
